@@ -1,2 +1,1 @@
-docker build -t demo .
-docker run demo 
+docker build -t bakery:build .
