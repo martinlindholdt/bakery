@@ -1,69 +1,73 @@
-FROM docker.io/project31/aarch64-alpine-qemu:3.5-7
+FROM resin/rpi-raspbian:jessie
 
 #ENV OF_VERSION 0.9.8
 
 MAINTAINER Martin Lindholdt <martin@lindholdt.net>
 
 LABEL maintainer="martin@lindholdt.net"
-    #of_version=$OF_VERSION \ 
       
-
-
-RUN [ "cross-build-start" ]
-
 WORKDIR /home
 RUN mkdir app
 
+RUN export TINI_SUBREAPER=1
 
-# add repos to apk 
-#RUN echo -e '@edgunity http://nl.alpinelinux.org/alpine/edge/community\n @edge http://nl.alpinelinux.org/alpine/edge/main\n @testing http://nl.alpinelinux.org/alpine/edge/testing\n @community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories
-RUN echo -e '@testing http://nl.alpinelinux.org/alpine/edge/testing' >> /etc/apk/repositories
-RUN echo -e '@community http://dl-cdn.alpinelinux.org/alpine/edge/community' >> /etc/apk/repositories
+RUN apt-get update 
 
-RUN apk add --update --no-cache --virtual .build-dependencies wget git curl 
-RUN apk add --update --no-cache --virtual .debug-dependencies nano bash 
-RUN apk add --update --no-cache python3 
-RUN apk add --update --no-cache openexr@community
-RUN apk add --upgrade --no-cache apk-tools@testing
-RUN apk add --no-cache opencv-libs@testing opencv@testing 
+RUN apt-get install -y --no-install-recommends build-essential git cmake pkg-config wget unzip
+RUN apt-get install -y --no-install-recommends libjpeg-dev libtiff5-dev libjasper-dev libpng12-dev
 
-#RUN apk add --update --no-cache make gcc glew freeglut gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav libxcursor boost
-#RUN apk add --update  --no-cache make pkg-config gcc openal glew freeglut freeimage gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-libav opencv libxcursor assimp boost
-#RUN apk add assimp freeimage openal opencv pkg-config --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing/
-#RUN apk add assimp freeimage openal opencv pkg-config --update-cache --repository http://dl-3.alpinelinux.org/alpine/edge/testing
-#RUN apk add assimp freeimage openal opencv pkg-config --repository http://dl-3.alpinelinux.org/alpine/edge/testing/aarch64/
-#RUN apk add --update --no-cache assimp@testing freeimage@testing openal@testing opencv@testing pkg-config@testing
-#RUN apt-get install  libmpg123-dev gstreamer1.0 gstreamer1.0-plugins-ugly -y
-#RUN apk add mpg123-dev gstreamer 
-RUN apk del .build-dependencies 
-RUN rm  -rf /var/cache/apk/* 
+# for gui 
+RUN apt-get install libgtk2.0-dev
+#Optimize internal operations 
+RUN apt-get install libatlas-base-dev gfortran
+
+RUN apt-get install python2.7-dev python3-dev
 
 
 
+# Pip 
+RUN wget https://bootstrap.pypa.io/get-pip.py
+RUN sudo python get-pip.py 
+RUN pip install numpy
 
-#Open frameworks 
-# RUN wget http://openframeworks.cc/versions/v${OF_VERSION}/of_v${OF_VERSION}_linuxarmv6l_release.tar.gz
-# RUN tar -xzvf of_v${OF_VERSION}_linuxarmv6l_release.tar.gz
-# RUN mv of_v${OF_VERSION}_linuxarmv6l_release openFrameworks
-#RUN cd /openFrameworks/scripts/linux/debian/; ./install_dependencies.sh -y
-#RUN cd /openFrameworks/scripts/linux/debian/; ./install_codecs.sh
-#RUN cd /openFrameworks/scripts/linux/; ./compileOF.sh -j3
-#RUN mkdir /openFrameworks/apps/myApps/app/; ln -s /openFrameworks/apps/myApps/app/ /app
-#WORKDIR /openFrameworks/apps/myApps/app
-# RUN make -j4; make RunRelease
 
-## Footfal dep installation file from github: https://github.com/WatershedArts/Footfall/blob/master/getrepos.sh 
-# RUN wget https://raw.githubusercontent.com/WatershedArts/Footfall/master/getrepos.sh
-# RUN chmod +x getrepos.sh 
-# RUN ./getrepos.sh 
+ENV OPENCV_VERSION=3.1.0 
 
-## Footfall installation and compilation 
-# WORKDIR /home/openFrameworks/apps 
-# RUN git clone https://github.com/WatershedArts/Footfall.git 
-# WORKDIR /home/openFrameworks/apps/Footfall/Footfall
-# RUN make
+# get opencv
+RUN wget -O opencv.zip https://github.com/Itseez/opencv/archive/${OPENCV_VERSION}.zip
+RUN unzip opencv.zip
 
+# get the conrib parts of opencv 
+# wget -O opencv_contrib.zip https://github.com/Itseez/opencv_contrib/archive/${OPENCV_VERSION}.zip
+# unzip opencv_contrib.zip
+
+RUN cd /home/opencv-${OPENCV_VERSION}/
+RUN mkdir build
+WORKDIR /home/opencv-${OPENCV_VERSION}/build
+
+RUN cmake -D CMAKE_BUILD_TYPE=RELEASE \
+    -D CMAKE_INSTALL_PREFIX=/usr/local \
+    -D INSTALL_C_EXAMPLES=OFF \
+    -D INSTALL_PYTHON_EXAMPLES=ON \
+#    -D OPENCV_EXTRA_MODULES_PATH=~/opencv_contrib-${OPENCV_VERSION}/modules \
+    -D BUILD_EXAMPLES=ON .. 
+
+
+RUN make -j4
+RUN make install
+RUN ldconfig
+
+WORKDIR /home
+
+
+#clean up 
+#RUN rm -rf opencv-${OPENCV_VERSION}
+
+RUN apt-get remove build-essential git cmake pkg-config wget unzip  
+RUN rm -rf /var/lib/apt/lists/*
+#RUN apt-get clean 
+
+
+RUN git clone https://github.com/opencv/opencv.git
 
 VOLUME ["/home/app"]
-
-RUN [ "cross-build-end" ]

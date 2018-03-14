@@ -1,1 +1,1 @@
-docker run -it --rm bakery:build  
+docker run -it --rm bakery-raspbian:opencv

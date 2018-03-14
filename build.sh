@@ -1,1 +1,1 @@
-docker build -t bakery:build .
+docker build -t bakery-raspbian:opencv .
